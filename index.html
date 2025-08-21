@@ -248,4 +248,63 @@
 </script>
 
 </body>
+<script>
+(function () {
+  function tryAlternates(img) {
+    // 已嘗試過的變體記錄，避免無限重試
+    const tried = img.dataset.tried || "";
+
+    // 解析路徑與檔名
+    let url;
+    try { url = new URL(img.src); } catch (e) { return; }
+    const parts = url.pathname.split("/");
+    const filename = parts.pop();          // 例如: "07.jpg"
+    const dot = filename.lastIndexOf(".");
+    const name = dot >= 0 ? filename.slice(0, dot) : filename; // "07"
+    const ext  = dot >= 0 ? filename.slice(dot + 1) : "";      // "jpg"
+
+    // 去前導零版（"07" -> "7"），僅在全數字時
+    const nameNoZero = /^\d+$/.test(name) ? String(parseInt(name, 10)) : name;
+
+    // 依序嘗試的候選（可再加）
+    const candidates = [];
+    if (ext) {
+      candidates.push(`${name}.${ext.toUpperCase()}`);
+      if (ext.toLowerCase() !== "jpeg") candidates.push(`${name}.jpeg`);
+      if (nameNoZero !== name) {
+        candidates.push(`${nameNoZero}.${ext}`);
+        candidates.push(`${nameNoZero}.${ext.toUpperCase()}`);
+        candidates.push(`${nameNoZero}.jpeg`);
+      }
+    } else {
+      candidates.push(`${name}.jpg`, `${name}.JPG`, `${name}.jpeg`);
+      if (nameNoZero !== name) {
+        candidates.push(`${nameNoZero}.jpg`, `${nameNoZero}.JPG`, `${nameNoZero}.jpeg`);
+      }
+    }
+
+    // 找出第一個尚未嘗試過的候選，替換 src 再試
+    for (const cand of candidates) {
+      if (!tried.split(",").includes(cand)) {
+        img.dataset.tried = tried ? tried + "," + cand : cand;
+        const newPath = parts.concat(cand).join("/");
+        url.pathname = newPath;
+        img.src = url.href;
+        return;
+      }
+    }
+
+    // 全部嘗試失敗：做個可視化標示，方便你定位
+    img.style.opacity = "0.35";
+    img.style.filter = "grayscale(1)";
+    img.title = "找不到檔案：" + filename;
+  }
+
+  // 監聽所有圖的 error 事件
+  document.querySelectorAll(".gallery-item img").forEach(function (img) {
+    img.addEventListener("error", function () { tryAlternates(img); });
+  });
+})();
+</script>
+
 </html>
